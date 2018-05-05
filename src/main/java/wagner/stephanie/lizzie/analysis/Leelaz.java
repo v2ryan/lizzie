@@ -14,6 +14,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * an interface with leelaz.exe go engine. Can be adapted for GTP, but is specifically designed for GCP's Leela Zero.
@@ -102,66 +104,7 @@ public class Leelaz {
 
         initializeStreams();
 
-        if (isCorrectVersion()) {
-            // start a thread to continuously read Leelaz output
-            new Thread(this::read).start();
-        } else {
-            // warn user or exit
-            JOptionPane.showMessageDialog(Lizzie.frame, "This version of Leela Zero is incompatible with Lizzie.\nPlease follow the instructions in the readme.");
-        }
-    }
-
-    /**
-     * verify that leelaz is the lizzie-variant with ~begin etc ponder output
-     *
-     * @return true if this leelaz will work for lizzie, false otherwise
-     */
-    private boolean isCorrectVersion() {
-        final int maxTestTime = 1000; // 1 second test
-        try {
-            boolean hasSeenName = false;
-            int c;
-            StringBuilder line = new StringBuilder();
-            sendCommand("time_left B 0 0");
-
-            while ((c = inputStream.read()) != -1) {
-                line.append((char) c);
-                if ((c == '\n')) {
-                    String lineString = line.toString();
-                    if (lineString.startsWith("=")) {
-                        if (!hasSeenName) {
-                            hasSeenName = true;
-                            // break from this loop in up to maxTestTime.
-                            new Thread(() -> {
-                                try {
-                                    Thread.sleep(maxTestTime);
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                }
-                                if (!isValidVersion)
-                                    sendCommand("name");
-                            }).start();
-                        } else {
-                            return false;
-                        }
-                    } else if (lineString.startsWith("~begin")) {
-                        isValidVersion = true;
-                        return true;
-                    }
-
-                    line = new StringBuilder();
-                }
-            }
-            // this line will be reached when Leelaz shuts down
-            System.out.println("Leelaz process ended.");
-
-            shutdown();
-            System.exit(-1);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return false;
+        new Thread(this::read).start();
     }
 
     /**
@@ -179,7 +122,9 @@ public class Leelaz {
      */
     private void parseLine(String line) {
         synchronized (this) {
-            if (line.startsWith("~begin") && !isWaitingToStartPonder) {
+            boolean isMoveDataLine = line.matches("(?s) +[A-T][0-9]+ -> +[0-9].*");
+            // System.out.println(" # " + isMoveDataLine + " |" + line); System.out.flush();
+            if (!isReadingPonderOutput && isMoveDataLine && !isWaitingToStartPonder) {
                 if (System.currentTimeMillis() - startPonderTime > maxAnalyzeTimeMillis) {
                     // we have pondered for enough time. pause pondering
                     togglePonder();
@@ -187,25 +132,19 @@ public class Leelaz {
 
                 isReadingPonderOutput = true;
                 bestMovesTemp = new ArrayList<>();
-            } else if (line.startsWith("~end") && !isWaitingToStartPonder) {
+                parseMoveDataLine(line);
+            } else if (isReadingPonderOutput && !isMoveDataLine && !isWaitingToStartPonder) {
                 isReadingPonderOutput = false;
                 bestMoves = bestMovesTemp;
 
                 if (Lizzie.frame != null) Lizzie.frame.repaint();
+                if (isPondering) {
+                    startPonder();
+                }
             } else {
 
                 if (isReadingPonderOutput && !isWaitingToStartPonder) {
-                    line = line.trim();
-                    // ignore passes, and only accept lines that start with a coordinate letter
-                    if (line.length() > 0 && Character.isLetter(line.charAt(0)) && !line.startsWith("pass")) {
-                        if (!(Lizzie.frame != null && Lizzie.frame.isPlayingAgainstLeelaz && Lizzie.frame.playerIsBlack != Lizzie.board.getData().blackToPlay)) {
-                            try {
-                                bestMovesTemp.add(new MoveData(line));
-                            } catch (ArrayIndexOutOfBoundsException e) {
-                                // this is very rare but is possible. ignore
-                            }
-                        }
-                    }
+                    parseMoveDataLine(line);
                 } else {
                     if (printCommunication) {
                         System.out.print(line);
@@ -216,8 +155,7 @@ public class Leelaz {
 
                         if (isWaitingToStartPonder) {
                             // Now we can tell it to actually start pondering
-                            sendCommand("time_left b 0 0");
-                            isWaitingToStartPonder = false;
+                            startPonder();
                         }
 
                         if (isSettingHandicap) {
@@ -237,6 +175,44 @@ public class Leelaz {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Parse a move-info line of Leelaz output
+     *
+     * @param line output line
+     */
+    private void parseMoveDataLine(String line) {
+        line = line.trim();
+        // ignore passes, and only accept lines that start with a coordinate letter
+        if (line.length() > 0 && Character.isLetter(line.charAt(0)) && !line.startsWith("pass")) {
+            if (!(Lizzie.frame != null && Lizzie.frame.isPlayingAgainstLeelaz && Lizzie.frame.playerIsBlack != Lizzie.board.getData().blackToPlay)) {
+                try {
+                    bestMovesTemp.add(new MoveData(line));
+                } catch (ArrayIndexOutOfBoundsException e) {
+                    // this is very rare but is possible. ignore
+                }
+            }
+        }
+    }
+
+    /**
+     * Tell Leelaz to start pondering
+     *
+     */
+    private void startPonder() {
+        sendCommand("time_left b 0 0");
+        isWaitingToStartPonder = false;
+        Timer ponderStopTimer = new Timer();
+        ponderStopTimer.schedule(new ponderStopTask(), 1000);
+    }
+
+    class ponderStopTask extends TimerTask {
+        public void run() {
+            // Send any command to terminate pondering.
+            sendCommand("name");
+            isReadingPonderOutput = false;
         }
     }
 
