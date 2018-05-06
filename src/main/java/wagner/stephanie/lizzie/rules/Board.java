@@ -981,10 +981,15 @@ public class Board implements LeelazListener {
                 System.out.println("Not a valid number");
                 return;
             }
-            Lizzie.leelaz.addListener(this);
-            analysisMode = true;
-            if (!Lizzie.leelaz.isPondering()) Lizzie.leelaz.togglePonder();
+            startAnalysis();
         }
+    }
+
+    public void startAnalysis() {
+        if (getNextMove() == null) return;
+        Lizzie.leelaz.addListener(this);
+        analysisMode = true;
+        if (!Lizzie.leelaz.isPondering()) Lizzie.leelaz.togglePonder();
     }
 
     public void bestMoveNotification(List<MoveData> bestMoves) {
@@ -992,6 +997,8 @@ public class Board implements LeelazListener {
             if (bestMoves == null || bestMoves.size() == 0) {
                 // If we get empty list, something strange happened, abort analysis
                 toggleAnalysis();
+                // ... and restart
+                startAnalysis();
             } else if (bestMoves.get(0).playouts > playoutsAnalysis) {
                 if (!nextMove()) {
                     // Reached the end...
