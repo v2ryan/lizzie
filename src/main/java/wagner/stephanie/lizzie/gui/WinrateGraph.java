@@ -48,7 +48,12 @@ public class WinrateGraph {
         g.setStroke(dashed);
 
         g.setColor(Color.white);
-        g.drawLine(posx, posy + height/2, posx + width, posy + height/2);
+        int tics = Lizzie.frame.tics;
+        for (int i = 1; i <= tics; i++) {
+            double percent = i * 100.0 / (tics + 1);
+            int y = posy + height - (int) (height * convertWinrate(percent) / 100);
+            g.drawLine(posx, y, posx + width, y);
+        }
 
         g.setColor(Color.green);
         g.setStroke(new BasicStroke(3));
@@ -121,16 +126,16 @@ public class WinrateGraph {
 
                 if (lastOkMove > 0) {
                     g.drawLine(posx + (lastOkMove * width / numMoves),
-                            posy + height - (int) (lastWr * height / 100),
+                            posy + height - (int) (convertWinrate(lastWr) * height / 100),
                             posx + (movenum * width / numMoves),
-                            posy + height - (int) (wr * height / 100));
+                            posy + height - (int) (convertWinrate(wr) * height / 100));
                 }
 
                 if (storedMoveNumber >= 0 ? movenum == storedMoveNumber - 1 : node == curMove)
                 {
                     g.setColor(Color.green);
                     g.fillOval(posx + (movenum*width/numMoves) - DOT_RADIUS,
-                            posy + height - (int)(wr*height/100) - DOT_RADIUS,
+                            posy + height - (int)(convertWinrate(wr)*height/100) - DOT_RADIUS,
                             DOT_RADIUS*2,
                             DOT_RADIUS*2);
                 }
@@ -164,6 +169,16 @@ public class WinrateGraph {
         params[2] = width;
         params[3] = height;
         params[4] = numMoves;
+    }
+
+    private double convertWinrate(double winrate) {
+        if (Lizzie.config.config.getJSONObject("ui").getBoolean("handicap-instead-of-winrate")) {
+            double handiCap = Lizzie.winrateToHandicap(winrate);
+            double r = (handiCap + 10) / 20;  // h10 = 1.0, -h10 = 0.0
+            return Math.max(0, Math.min(r, 1)) * 100;
+        } else {
+            return winrate;
+        }
     }
 
     public int moveNumber(int x, int y)
