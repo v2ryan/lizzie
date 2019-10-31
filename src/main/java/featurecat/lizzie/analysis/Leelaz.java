@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.StringTokenizer;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -69,6 +71,10 @@ public class Leelaz {
   private boolean isLoaded = false;
   private boolean isCheckingName;
   private boolean isCheckingVersion;
+
+  // avoid too frequent flushes for engines beyond SSH
+  private final long DELAY_FLUSH_MILLIS = 50;
+  private Timer flushTimer;
 
   // for Multiple Engine
   private String engineCommand;
@@ -524,11 +530,29 @@ public class Leelaz {
     if (outputStream != null) {
       try {
         outputStream.write((command + "\n").getBytes());
-        outputStream.flush();
+        flushSoon();
       } catch (IOException e) {
         e.printStackTrace();
       }
     }
+  }
+
+  private void flushSoon() {
+    TimerTask flushTask =
+        new TimerTask() {
+          public void run() {
+            try {
+              outputStream.flush();
+            } catch (IOException e) {
+              e.printStackTrace();
+            }
+          }
+        };
+    if (flushTimer != null) {
+      flushTimer.cancel();
+    }
+    flushTimer = new Timer();
+    flushTimer.schedule(flushTask, DELAY_FLUSH_MILLIS);
   }
 
   /** Check whether leelaz is responding to the last command */
