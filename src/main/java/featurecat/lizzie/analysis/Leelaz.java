@@ -9,7 +9,6 @@ import featurecat.lizzie.util.Utils;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -38,7 +37,6 @@ public class Leelaz {
   private long maxAnalyzeTimeMillis; // , maxThinkingTimeMillis;
   private int cmdNumber;
   private int currentCmdNum;
-  private ArrayDeque<String> cmdQueue;
   private boolean isModifyingBoard = false;
 
   private Process process;
@@ -104,8 +102,7 @@ public class Leelaz {
     isPondering = false;
     startPonderTime = System.currentTimeMillis();
     cmdNumber = 1;
-    currentCmdNum = 0;
-    cmdQueue = new ArrayDeque<>();
+    currentCmdNum = -1;
 
     // Move config to member for other method call
     config = Lizzie.config.config.getJSONObject("leelaz");
@@ -365,8 +362,6 @@ public class Leelaz {
         String[] params = line.trim().split(" ");
         currentCmdNum = Integer.parseInt(params[0].substring(1).trim());
 
-        trySendCommandFromQueue();
-
         if (line.startsWith("?") || params.length == 1) return;
 
         if (isSettingHandicap) {
@@ -465,55 +460,11 @@ public class Leelaz {
   }
 
   /**
-   * Sends a command to command queue for leelaz to execute
-   *
-   * @param command a GTP command containing no newline characters
-   */
-  public void sendCommand(String command) {
-    synchronized (cmdQueue) {
-      // For efficiency, delete unnecessary "lz-analyze" that will be stopped immediately
-      if (!cmdQueue.isEmpty()
-          && (cmdQueue.peekLast().startsWith("lz-analyze")
-              || cmdQueue.peekLast().startsWith("kata-analyze"))) {
-        cmdQueue.removeLast();
-      }
-      cmdQueue.addLast(command);
-      trySendCommandFromQueue();
-      if (Lizzie.frame.isAutoEstimating) {
-        if (command.startsWith("play") || command.startsWith("undo")) {
-          Lizzie.frame.zen.sendCommand(command);
-          Lizzie.frame.zen.countStones();
-        }
-      }
-    }
-  }
-
-  /** Sends a command from command queue for leelaz to execute if it is ready */
-  private void trySendCommandFromQueue() {
-    // Defer sending "lz-analyze" if leelaz is not ready yet.
-    // Though all commands should be deferred theoretically,
-    // only "lz-analyze" is deferred here for fear of
-    // possible hang-up by missing response for some reason.
-    // cmdQueue can be replaced with a mere String variable in this case,
-    // but it is kept for future change of our mind.
-    synchronized (cmdQueue) {
-      if (cmdQueue.isEmpty()
-          || (cmdQueue.peekFirst().startsWith("lz-analyze")
-                  || cmdQueue.peekFirst().startsWith("kata-analyze"))
-              && !isResponseUpToDate()) {
-        return;
-      }
-      String command = cmdQueue.removeFirst();
-      sendCommandToLeelaz(command);
-    }
-  }
-
-  /**
    * Sends a command for leelaz to execute
    *
    * @param command a GTP command containing no newline characters
    */
-  private void sendCommandToLeelaz(String command) {
+  public void sendCommand(String command) {
     if (command.startsWith("fixed_handicap")
         || (isKataGo && command.startsWith("place_free_handicap"))) isSettingHandicap = true;
     if (printCommunication) {
