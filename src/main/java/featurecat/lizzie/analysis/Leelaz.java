@@ -40,6 +40,7 @@ public class Leelaz {
   private int currentCmdNum;
   private ArrayDeque<String> cmdQueue;
   private boolean isModifyingBoard = false;
+  private String lastSentCommand = "";
 
   private Process process;
 
@@ -364,6 +365,7 @@ public class Leelaz {
         }
         String[] params = line.trim().split(" ");
         currentCmdNum = Integer.parseInt(params[0].substring(1).trim());
+        debugPrint(line);
 
         trySendCommandFromQueue();
 
@@ -418,6 +420,12 @@ public class Leelaz {
         }
       }
     }
+  }
+
+  private void debugPrint(String line) {
+    Lizzie.frame.setPlayers(
+        String.format("<%d %d %d> %s", cmdNumber, currentCmdNum, cmdQueue.size(), lastSentCommand),
+        line);
   }
 
   /**
@@ -526,6 +534,7 @@ public class Leelaz {
       try {
         outputStream.write((command + "\n").getBytes());
         outputStream.flush();
+        lastSentCommand = command;
       } catch (IOException e) {
         e.printStackTrace();
       }
