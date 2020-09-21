@@ -40,6 +40,13 @@ public class Leelaz {
   private int currentCmdNum;
   private ArrayDeque<String> cmdQueue;
   private boolean isModifyingBoard = false;
+  private String lastSentCommand = "";
+  private String lastResponse = "";
+  private int mainThreadId = -1;
+  private int uiThreadId = -2;
+  private int readerThreadId = -3;
+  private String uiThreadDebug = "";
+  private String readerThreadDebug = "";
 
   private Process process;
 
@@ -96,6 +103,7 @@ public class Leelaz {
    * @throws IOException
    */
   public Leelaz(String engineCommand) throws JSONException {
+    mainThreadId = threadId();
     board = new Board();
     bestMoves = new ArrayList<>();
     bestMovesTemp = new ArrayList<>();
@@ -279,6 +287,7 @@ public class Leelaz {
    * @param line output line
    */
   private void parseLine(String line) {
+    debugPrint("@parseLine");
     synchronized (this) {
       if (printCommunication || gtpConsole) {
         Lizzie.gtpConsole.addLine(line);
@@ -364,10 +373,14 @@ public class Leelaz {
         }
         String[] params = line.trim().split(" ");
         currentCmdNum = Integer.parseInt(params[0].substring(1).trim());
+        lastResponse = line;
 
         trySendCommandFromQueue();
 
-        if (line.startsWith("?") || params.length == 1) return;
+        if (line.startsWith("?") || params.length == 1) {
+          debugPrint("~parseLine1");
+          return;
+        }
 
         if (isSettingHandicap) {
           bestMoves = new ArrayList<>();
@@ -418,6 +431,25 @@ public class Leelaz {
         }
       }
     }
+    debugPrint("~parseLine");
+  }
+
+  private void debugPrint(String msg) {
+    int id = threadId();
+    if (id == uiThreadId) {
+      uiThreadDebug = debugMsg(msg);
+    } else if (id == readerThreadId) {
+      readerThreadDebug = debugMsg(msg);
+    } else {
+      System.out.printf("Unknown thread id %d (%s)\n", id, msg);
+    }
+    Lizzie.frame.setPlayers(uiThreadDebug, readerThreadDebug);
+  }
+
+  private String debugMsg(String msg) {
+    return String.format(
+        "<%d %s (%d %d %d)> \"%s\" / \"%s\"",
+        threadId(), msg, cmdNumber, currentCmdNum, cmdQueue.size(), lastSentCommand, lastResponse);
   }
 
   /**
@@ -440,8 +472,13 @@ public class Leelaz {
     }
   }
 
+  private int threadId() {
+    return (int) Thread.currentThread().getId();
+  }
+
   /** Continually reads and processes output from leelaz */
   private void read() {
+    readerThreadId = threadId();
     try {
       int c;
       StringBuilder line = new StringBuilder();
@@ -470,6 +507,11 @@ public class Leelaz {
    * @param command a GTP command containing no newline characters
    */
   public void sendCommand(String command) {
+    int id = threadId();
+    if (id != mainThreadId && id != readerThreadId) {
+      uiThreadId = id;
+    }
+    debugPrint("@sendCommand");
     synchronized (cmdQueue) {
       // For efficiency, delete unnecessary "lz-analyze" that will be stopped immediately
       if (!cmdQueue.isEmpty()
@@ -486,6 +528,7 @@ public class Leelaz {
         }
       }
     }
+    debugPrint("~sendCommand");
   }
 
   /** Sends a command from command queue for leelaz to execute if it is ready */
@@ -496,6 +539,7 @@ public class Leelaz {
     // possible hang-up by missing response for some reason.
     // cmdQueue can be replaced with a mere String variable in this case,
     // but it is kept for future change of our mind.
+    debugPrint("@trySendCommandFromQueue");
     synchronized (cmdQueue) {
       if (cmdQueue.isEmpty()
           || (cmdQueue.peekFirst().startsWith("lz-analyze")
@@ -506,6 +550,7 @@ public class Leelaz {
       String command = cmdQueue.removeFirst();
       sendCommandToLeelaz(command);
     }
+    debugPrint("~trySendCommandFromQueue");
   }
 
   /**
@@ -514,6 +559,7 @@ public class Leelaz {
    * @param command a GTP command containing no newline characters
    */
   private void sendCommandToLeelaz(String command) {
+    debugPrint("@sendCommandToLeelaz");
     if (command.startsWith("fixed_handicap")
         || (isKataGo && command.startsWith("place_free_handicap"))) isSettingHandicap = true;
     if (printCommunication) {
@@ -526,10 +572,12 @@ public class Leelaz {
       try {
         outputStream.write((command + "\n").getBytes());
         outputStream.flush();
+        lastSentCommand = command;
       } catch (IOException e) {
         e.printStackTrace();
       }
     }
+    debugPrint("~sendCommandToLeelaz");
   }
 
   /** Check whether leelaz is responding to the last command */
