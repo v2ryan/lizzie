@@ -40,6 +40,13 @@ public class Leelaz {
   private int currentCmdNum;
   private ArrayDeque<String> cmdQueue;
   private boolean isModifyingBoard = false;
+  private String lastSentCommand = "";
+  private String lastResponse = "";
+  private int mainThreadId = -1;
+  private int uiThreadId = -2;
+  private int readerThreadId = -3;
+  private String uiThreadDebug = "";
+  private String readerThreadDebug = "";
 
   private Process process;
 
@@ -96,6 +103,7 @@ public class Leelaz {
    * @throws IOException
    */
   public Leelaz(String engineCommand) throws JSONException {
+    mainThreadId = threadId();
     board = new Board();
     bestMoves = new ArrayList<>();
     bestMovesTemp = new ArrayList<>();
@@ -279,25 +287,31 @@ public class Leelaz {
    * @param line output line
    */
   private void parseLine(String line) {
+    debugPrint("@parseLine:" + line);
     synchronized (this) {
+      debugPrint("parseLine1:" + line);
       if (printCommunication || gtpConsole) {
         Lizzie.gtpConsole.addLine(line);
       }
       if (line.startsWith("komi=")) {
+        debugPrint("parseLine_komi=:" + line);
         try {
           dynamicKomi = Float.parseFloat(line.substring("komi=".length()).trim());
         } catch (NumberFormatException nfe) {
           dynamicKomi = Float.NaN;
         }
       } else if (line.startsWith("opp_komi=")) {
+        debugPrint("parseLine_opp_komi=:" + line);
         try {
           dynamicOppKomi = Float.parseFloat(line.substring("opp_komi=".length()).trim());
         } catch (NumberFormatException nfe) {
           dynamicOppKomi = Float.NaN;
         }
       } else if (line.equals("\n")) {
+        debugPrint("parseLine_\\n:" + line);
         // End of response
       } else if (line.startsWith("info")) {
+        debugPrint("parseLine_info:" + line);
         if (!isLoaded) {
           Lizzie.frame.refresh();
         }
@@ -333,6 +347,7 @@ public class Leelaz {
           }
         }
       } else if (line.contains(" -> ")) {
+        debugPrint("parseLine->:" + line);
         if (!isLoaded) {
           Lizzie.frame.refresh();
         }
@@ -351,6 +366,7 @@ public class Leelaz {
           }
         }
       } else if (line.startsWith("play")) {
+        debugPrint("parseLine_play:" + line);
         // In lz-genmove_analyze
         if (Lizzie.frame.isPlayingAgainstLeelaz) {
           Lizzie.board.place(line.substring(5).trim());
@@ -358,18 +374,26 @@ public class Leelaz {
         isThinking = false;
 
       } else if (line.startsWith("=") || line.startsWith("?")) {
+        debugPrint("parseLine=?1:" + line);
         if (printCommunication || gtpConsole) {
           System.out.print(line);
           Lizzie.gtpConsole.addLine(line);
         }
         String[] params = line.trim().split(" ");
         currentCmdNum = Integer.parseInt(params[0].substring(1).trim());
+        lastResponse = line;
 
+        debugPrint("parseLine=?2:" + line);
         trySendCommandFromQueue();
+        debugPrint("parseLine=?3:" + line);
 
-        if (line.startsWith("?") || params.length == 1) return;
+        if (line.startsWith("?") || params.length == 1) {
+          debugPrint("~parseLine1");
+          return;
+        }
 
         if (isSettingHandicap) {
+          debugPrint("parseLine=?4:" + line);
           bestMoves = new ArrayList<>();
           for (int i = 1; i < params.length; i++) {
             Lizzie.board
@@ -378,6 +402,7 @@ public class Leelaz {
           }
           isSettingHandicap = false;
         } else if (isThinking && !isPondering) {
+          debugPrint("parseLine=?5:" + line);
           if (Lizzie.frame.isPlayingAgainstLeelaz || isInputCommand) {
             Lizzie.board.place(params[1]);
             if (Lizzie.frame.isAutoEstimating) {
@@ -397,12 +422,14 @@ public class Leelaz {
             }
           }
         } else if (isCheckingName) {
+          debugPrint("parseLine=?6:" + line);
           if (params[1].startsWith("KataGo")) {
             this.isKataGo = true;
             Lizzie.initializeAfterVersionCheck(this);
           }
           isCheckingName = false;
         } else if (isCheckingVersion && !isKataGo) {
+          debugPrint("parseLine=?7:" + line);
           String[] ver = params[1].split("\\.");
           int minor = Integer.parseInt(ver[1]);
           // Gtp support added in version 15
@@ -416,8 +443,28 @@ public class Leelaz {
           isCheckingVersion = false;
           Lizzie.initializeAfterVersionCheck(this);
         }
+        debugPrint("parseLine=?8:" + line);
       }
     }
+    debugPrint("~parseLine:" + line);
+  }
+
+  private void debugPrint(String msg) {
+    int id = threadId();
+    if (id == uiThreadId) {
+      uiThreadDebug = debugMsg(msg);
+    } else if (id == readerThreadId) {
+      readerThreadDebug = debugMsg(msg);
+    } else {
+      System.out.printf("Unknown thread id %d (%s)\n", id, msg);
+    }
+    Lizzie.frame.setPlayers(uiThreadDebug, readerThreadDebug);
+  }
+
+  private String debugMsg(String msg) {
+    return String.format(
+        "<%d %s (%d %d %d)> \"%s\" / \"%s\"",
+        threadId(), msg, cmdNumber, currentCmdNum, cmdQueue.size(), lastSentCommand, lastResponse);
   }
 
   /**
@@ -440,8 +487,13 @@ public class Leelaz {
     }
   }
 
+  private int threadId() {
+    return (int) Thread.currentThread().getId();
+  }
+
   /** Continually reads and processes output from leelaz */
   private void read() {
+    readerThreadId = threadId();
     try {
       int c;
       StringBuilder line = new StringBuilder();
@@ -470,6 +522,11 @@ public class Leelaz {
    * @param command a GTP command containing no newline characters
    */
   public void sendCommand(String command) {
+    int id = threadId();
+    if (id != mainThreadId && id != readerThreadId) {
+      uiThreadId = id;
+    }
+    debugPrint("@sendCommand");
     synchronized (cmdQueue) {
       // For efficiency, delete unnecessary "lz-analyze" that will be stopped immediately
       if (!cmdQueue.isEmpty()
@@ -486,6 +543,7 @@ public class Leelaz {
         }
       }
     }
+    debugPrint("~sendCommand");
   }
 
   /** Sends a command from command queue for leelaz to execute if it is ready */
@@ -496,6 +554,7 @@ public class Leelaz {
     // possible hang-up by missing response for some reason.
     // cmdQueue can be replaced with a mere String variable in this case,
     // but it is kept for future change of our mind.
+    debugPrint("@trySendCommandFromQueue");
     synchronized (cmdQueue) {
       if (cmdQueue.isEmpty()
           || (cmdQueue.peekFirst().startsWith("lz-analyze")
@@ -506,6 +565,7 @@ public class Leelaz {
       String command = cmdQueue.removeFirst();
       sendCommandToLeelaz(command);
     }
+    debugPrint("~trySendCommandFromQueue");
   }
 
   /**
@@ -514,22 +574,31 @@ public class Leelaz {
    * @param command a GTP command containing no newline characters
    */
   private void sendCommandToLeelaz(String command) {
+    debugPrint("@sendCommandToLeelaz:" + command);
     if (command.startsWith("fixed_handicap")
         || (isKataGo && command.startsWith("place_free_handicap"))) isSettingHandicap = true;
+    debugPrint("sendCommandToLeelaz1:" + command);
     if (printCommunication) {
       System.out.printf("> %d %s\n", cmdNumber, command);
     }
+    debugPrint("sendCommandToLeelaz2:" + command);
     Lizzie.gtpConsole.addCommand(command, cmdNumber);
+    debugPrint("sendCommandToLeelaz3:" + command);
     command = cmdNumber + " " + command;
     cmdNumber++;
+    debugPrint("sendCommandToLeelaz4:" + command);
     if (outputStream != null) {
       try {
+        debugPrint("sendCommandToLeelaz5:" + command);
         outputStream.write((command + "\n").getBytes());
         outputStream.flush();
+        lastSentCommand = command;
+        debugPrint("sendCommandToLeelaz6:" + command);
       } catch (IOException e) {
         e.printStackTrace();
       }
     }
+    debugPrint("~sendCommandToLeelaz:" + command);
   }
 
   /** Check whether leelaz is responding to the last command */
