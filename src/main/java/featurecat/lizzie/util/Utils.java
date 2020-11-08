@@ -165,6 +165,10 @@ public class Utils {
   }
 
   public static double actualScoreMean(double scoreMean) {
+    return actualScoreMean(scoreMean, Lizzie.config.kataGoScoreMeanAlwaysBlack);
+  }
+
+  private static double actualScoreMean(double scoreMean, boolean alwaysBlack) {
     double score = scoreMean;
     if (Lizzie.board.getHistory().isBlacksTurn()) {
       if (Lizzie.config.showKataGoBoardScoreMean) {
@@ -174,7 +178,7 @@ public class Utils {
       if (Lizzie.config.showKataGoBoardScoreMean) {
         score = score - Lizzie.board.getHistory().getGameInfo().getKomi();
       }
-      if (Lizzie.config.kataGoScoreMeanAlwaysBlack) {
+      if (alwaysBlack) {
         score = -score;
       }
     }
@@ -184,6 +188,19 @@ public class Utils {
   public static MoveData getBestMove() {
     List<MoveData> bestMoves = Lizzie.board.getHistory().getData().bestMoves;
     return (bestMoves.size() > 0) ? bestMoves.get(0) : null;
+  }
+
+  public static String getScoreTextWithLeadingColor() {
+    MoveData bestMove = getBestMove();
+    boolean validScore = Lizzie.leelaz.isKataGo && (bestMove != null);
+    if (!validScore) {
+      return "";
+    }
+    double blackScore = actualScoreMean(bestMove.scoreMean, true);
+    String leadingColor =
+        Lizzie.frame.resourceBundle.getString(
+            (blackScore >= 0) ? "CountDialog.bigBlack" : "CountDialog.bigWhite");
+    return leadingColor + "+" + String.format("%.1f", Math.abs(blackScore));
   }
 
   public static Integer txtFieldValue(JTextField txt) {
