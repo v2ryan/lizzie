@@ -298,6 +298,7 @@ public class WinrateGraph {
         movenum--;
       }
       if (curMovenum > 0) {
+        Font origFont = g.getFont();
         g.setColor(Color.WHITE);
         Font f = new Font("", Font.BOLD, 15);
         int sign =
@@ -312,12 +313,14 @@ public class WinrateGraph {
                 + height / 2
                 - (int) (convertScoreMean(curCurscoreMean) * height / 2 / maxcoreMean)
                 + 2 * DOT_RADIUS);
+        g.setFont(origFont);
       }
     }
 
     // Show move number
-    movenum = curMove.getData().moveNumber - 1;
-    String moveNumString = "" + movenum;
+    int moveNumber = curMove.getData().moveNumber;
+    String moveNumString = "" + moveNumber;
+    movenum = moveNumber - 1;
     int x = posx + (movenum * width / numMoves);
     int mw = g.getFontMetrics().stringWidth(moveNumString);
     int margin = strokeRadius;
