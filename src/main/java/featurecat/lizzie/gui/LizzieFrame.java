@@ -969,11 +969,13 @@ public class LizzieFrame extends MainFrame {
     if (Lizzie.leelaz.isKataGo && validScore) {
       double stdev = bestMove.scoreStdev;
       text =
-          text
-              + resourceBundle.getString("LizzieFrame.katago.scoreStdev")
-              + ": "
-              + String.format("%.1f", stdev)
-              + " ";
+          stdev == 0
+              ? text
+              : text
+                  + resourceBundle.getString("LizzieFrame.katago.scoreStdev")
+                  + ": "
+                  + String.format("%.1f", stdev)
+                  + " ";
     }
     // Last move
     if (validLastWinrate && validWinrate) {
