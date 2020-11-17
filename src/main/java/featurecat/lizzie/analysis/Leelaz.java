@@ -461,7 +461,7 @@ public class Leelaz {
           if (params[1].startsWith("KataGo")) {
             this.isKataGo = true;
             Lizzie.initializeAfterVersionCheck(this);
-          } else if (params[1].equals("Leela")) {
+          } else if (params[1].equals("Leela") && params.length == 2) {
             this.isLeela0110 = true;
             Lizzie.initializeAfterVersionCheck(this);
           }
