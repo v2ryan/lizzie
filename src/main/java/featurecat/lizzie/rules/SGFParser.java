@@ -589,8 +589,7 @@ public class SGFParser {
     if (handicap != 0) generalProps.append(String.format("HA[%s]", handicap));
     generalProps.append(
         String.format(
-            "CA[%s]KM[%s]PW[%s]PB[%s]DT[%s]AP[Lizzie: %s]SZ[%s]",
-            writerEncoding,
+            "KM[%s]PW[%s]PB[%s]DT[%s]AP[Lizzie: %s]SZ[%s]",
             komi,
             playerW,
             playerB,
@@ -608,6 +607,10 @@ public class SGFParser {
     history.toStart();
 
     // Game properties
+    // [Note] We manage "CA" separately from other properties so that we can place it before any
+    // non-ASCII characters for safety. (generalProps is unordered in the current implementation
+    // unfortunately.)
+    builder.append(String.format("CA[%s]", writerEncoding));
     history.getData().addProperties(generalProps.toString());
     builder.append(history.getData().propertiesString());
 
