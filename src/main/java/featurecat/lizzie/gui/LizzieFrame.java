@@ -269,6 +269,10 @@ public class LizzieFrame extends MainFrame {
         TimeUnit.SECONDS);
   }
 
+  public BoardRenderer getBoardRenderer() {
+    return boardRenderer;
+  }
+
   /** Clears related status from empty board. */
   public void clear() {
     if (winrateGraph != null) {

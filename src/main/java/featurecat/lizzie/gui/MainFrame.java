@@ -80,6 +80,10 @@ public abstract class MainFrame extends JFrame {
     super(DEFAULT_TITLE);
   }
 
+  public BoardRenderer getBoardRenderer() {
+    return null;
+  }
+
   public boolean isDesignMode() {
     return false;
   }
