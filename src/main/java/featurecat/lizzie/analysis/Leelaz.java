@@ -715,6 +715,7 @@ public class Leelaz {
       isPondering = true;
       startPonderTime = System.currentTimeMillis();
     }
+    Lizzie.allow = "";
     sendCommand(
         String.format(
             "lz-analyze %d %s",
