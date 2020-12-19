@@ -754,7 +754,7 @@ public class Leelaz {
   }
 
   private String allowCommandFor(String color) {
-    int untilDepth = 9999;
+    int untilDepth = 1;
     String allow = Lizzie.allow;
     return allow.isEmpty() ? "" : String.format(" allow %s %s %d", color, allow, untilDepth);
   }
