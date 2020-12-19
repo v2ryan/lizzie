@@ -82,7 +82,7 @@ public class BoardPane extends LizziePane {
     resourceBundle.getString("LizzieFrame.commands.keyE"),
   };
 
-  private static BoardRenderer boardRenderer;
+  public static BoardRenderer boardRenderer;
 
   //  private final BufferStrategy bs;
   private static boolean started = false;
@@ -108,6 +108,11 @@ public class BoardPane extends LizziePane {
         new MouseAdapter() {
           @Override
           public void mousePressed(MouseEvent e) {
+            if (e.isAltDown()) {
+              owner.input.startSettingAnalysisRegion(e);
+              Lizzie.frame.refresh();
+              return;
+            }
             if (e.getButton() == MouseEvent.BUTTON1) { // left click
               if (e.getClickCount() == 2) { // TODO: Maybe need to delay check
                 onDoubleClicked(e.getX(), e.getY());
@@ -121,6 +126,11 @@ public class BoardPane extends LizziePane {
               if (!Lizzie.frame.openRightClickMenu(e.getX(), e.getY())) Input.undo();
               // }
             }
+          }
+
+          @Override
+          public void mouseReleased(MouseEvent e) {
+            owner.input.mouseReleased(e);
           }
 
           @Override
@@ -140,7 +150,9 @@ public class BoardPane extends LizziePane {
           }
 
           @Override
-          public void mouseDragged(MouseEvent e) {}
+          public void mouseDragged(MouseEvent e) {
+            owner.input.mouseDragged(e);
+          }
         });
   }
 

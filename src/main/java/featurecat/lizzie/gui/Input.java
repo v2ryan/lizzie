@@ -39,7 +39,7 @@ public class Input implements MouseListener, KeyListener, MouseWheelListener, Mo
     }
   }
 
-  private void startSettingAnalysisRegion(MouseEvent e) {
+  public void startSettingAnalysisRegion(MouseEvent e) {
     int[] a = Lizzie.allowStart = mouseToCoord(e);
     if (a == null) return;
     Lizzie.allowLeft = Lizzie.allowRight = a[0];
