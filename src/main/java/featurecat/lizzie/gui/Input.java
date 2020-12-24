@@ -22,7 +22,7 @@ public class Input implements MouseListener, KeyListener, MouseWheelListener, Mo
   public void mousePressed(MouseEvent e) {
     Lizzie.frame.toolBar.setTxtUnfocus();
     if (Lizzie.frame.subBoardOnClick(e)) return;
-    if (e.isAltDown()) {
+    if (e.isAltDown() && e.getButton() == MouseEvent.BUTTON1) {
       startSettingAnalysisRegion(e);
       Lizzie.frame.refresh();
       return;
@@ -87,7 +87,7 @@ public class Input implements MouseListener, KeyListener, MouseWheelListener, Mo
 
   @Override
   public void mouseReleased(MouseEvent e) {
-    if (e.isAltDown()) {
+    if (e.isAltDown() && e.getButton() == MouseEvent.BUTTON1) {
       setAnalysisRegion(e);
       Lizzie.frame.refresh();
       return;

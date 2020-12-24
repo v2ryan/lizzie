@@ -108,7 +108,7 @@ public class BoardPane extends LizziePane {
         new MouseAdapter() {
           @Override
           public void mousePressed(MouseEvent e) {
-            if (e.isAltDown()) {
+            if (e.isAltDown() && e.getButton() == MouseEvent.BUTTON1) {
               owner.input.startSettingAnalysisRegion(e);
               Lizzie.frame.refresh();
               return;
