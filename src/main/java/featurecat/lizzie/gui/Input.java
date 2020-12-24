@@ -47,9 +47,10 @@ public class Input implements MouseListener, KeyListener, MouseWheelListener, Mo
   }
 
   private void setAnalysisRegion(MouseEvent e) {
-    updateAnalysisRegionGeom(e);
+    if (Lizzie.allowStart == null) return;
     Lizzie.allow = allowedVertices();
     Lizzie.allowStart = null;
+    Lizzie.frame.refresh();
     if (Lizzie.leelaz.isPondering()) Lizzie.leelaz.ponder();
   }
 
@@ -87,11 +88,7 @@ public class Input implements MouseListener, KeyListener, MouseWheelListener, Mo
 
   @Override
   public void mouseReleased(MouseEvent e) {
-    if (e.isAltDown() && e.getButton() == MouseEvent.BUTTON1) {
-      setAnalysisRegion(e);
-      Lizzie.frame.refresh();
-      return;
-    }
+    setAnalysisRegion(e);
   }
 
   @Override
