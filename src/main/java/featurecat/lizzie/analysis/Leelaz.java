@@ -392,7 +392,7 @@ public class Leelaz {
         }
         isLoaded = true;
         if (isResponseUpToDate()
-            || isLeela0110
+            || isLeela0110 && isPondering
             || isThinking
                 && (!isPondering && Lizzie.frame.isPlayingAgainstLeelaz || isInputCommand)) {
           List<MoveData> bm = isLeela0110 ? leela0110BestMoves : bestMoves;
