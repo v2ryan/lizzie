@@ -18,10 +18,12 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+import java.awt.im.InputContext;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import javax.swing.JFileChooser;
@@ -162,6 +164,8 @@ public abstract class MainFrame extends JFrame {
   public abstract void pasteSgf();
 
   public void editComment() {
+    InputContext context = InputContext.getInstance();
+    Locale oldLocale = context.getLocale();
     String oldComment = Lizzie.board.getHistory().getData().comment;
     // https://stackoverflow.com/questions/7765478/how-to-add-text-area-on-joptionpane
     // https://stackoverflow.com/a/55678093
@@ -178,6 +182,7 @@ public abstract class MainFrame extends JFrame {
       Lizzie.board.getHistory().getData().comment = textArea.getText();
       refresh();
     }
+    context.selectInputMethod(oldLocale);
   }
 
   public void copyCommentToClipboard() {
